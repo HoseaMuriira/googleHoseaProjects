@@ -1,6 +1,6 @@
 {
-  "name": "Schemly CBC Planner",
-  "description": "Schemes of work and lesson plan maker for Junior School Grade 7-9 based on KICD CBC curriculum with 10-column scheme grid, activities header, inquiry questions, and Word document export.",
+  "name": "Hostech Planner",
+  "description": "Hostech Planner - Smart KICD CBC Schemes of Work and Lesson Plan generator for teachers with offline persistence, Word & PDF exports, login credentials sync, and Safaricom M-PESA download credits.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

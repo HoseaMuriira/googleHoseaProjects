@@ -6,17 +6,20 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.example.data.model.LessonPlan
+import com.example.data.model.PaymentTransaction
 import com.example.data.model.SchemeOfWork
+import com.example.data.model.UserAccount
 
 @Database(
-    entities = [SchemeOfWork::class, LessonPlan::class],
-    version = 2,
+    entities = [SchemeOfWork::class, LessonPlan::class, UserAccount::class, PaymentTransaction::class],
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun schemeDao(): SchemeDao
     abstract fun lessonPlanDao(): LessonPlanDao
+    abstract fun userDao(): UserDao
 
     companion object {
         @Volatile

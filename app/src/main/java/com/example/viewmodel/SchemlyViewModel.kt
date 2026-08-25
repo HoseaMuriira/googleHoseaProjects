@@ -5,8 +5,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
 import com.example.data.model.LessonPlan
+import com.example.data.model.PaymentTransaction
 import com.example.data.model.SchemeLessonRow
 import com.example.data.model.SchemeOfWork
+import com.example.data.model.UserAccount
 import com.example.data.repository.KicdCurriculumData
 import com.example.data.repository.SchemeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +38,10 @@ data class SchemlyUiState(
     val isCreateSchemeDialogVisible: Boolean = false,
     val isCreateLessonPlanDialogVisible: Boolean = false,
     val isAIGeneratorDialogVisible: Boolean = false,
+    val isLoginDialogVisible: Boolean = false,
+    val isPaymentDialogVisible: Boolean = false,
+    val isProfileDialogVisible: Boolean = false,
+    val authErrorMessage: String? = null,
     val snackbarMessage: String? = null
 )
 
@@ -44,13 +50,14 @@ class SchemlyViewModel(application: Application) : AndroidViewModel(application)
     private val repository: SchemeRepository
     val schemes: StateFlow<List<SchemeOfWork>>
     val lessonPlans: StateFlow<List<LessonPlan>>
+    val currentUser: StateFlow<UserAccount?>
 
     private val _uiState = MutableStateFlow(SchemlyUiState())
     val uiState: StateFlow<SchemlyUiState> = _uiState.asStateFlow()
 
     init {
         val database = AppDatabase.getDatabase(application)
-        repository = SchemeRepository(database.schemeDao(), database.lessonPlanDao())
+        repository = SchemeRepository(database.schemeDao(), database.lessonPlanDao(), database.userDao())
 
         schemes = repository.allSchemes.stateIn(
             scope = viewModelScope,
@@ -62,6 +69,12 @@ class SchemlyViewModel(application: Application) : AndroidViewModel(application)
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
+        )
+
+        currentUser = repository.currentUser.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
         )
 
         viewModelScope.launch {
@@ -396,6 +409,145 @@ class SchemlyViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearSnackbar() {
         _uiState.value = _uiState.value.copy(snackbarMessage = null)
+    }
+
+    fun showLoginDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(
+            isLoginDialogVisible = show,
+            authErrorMessage = null
+        )
+    }
+
+    fun showPaymentDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(isPaymentDialogVisible = show)
+    }
+
+    fun showProfileDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(isProfileDialogVisible = show)
+    }
+
+    fun loginOrRegister(
+        username: String,
+        password: String,
+        fullName: String = "",
+        schoolName: String = "JUNIOR SECONDARY SCHOOL",
+        tscNumber: String = "",
+        phone: String = "",
+        onSuccess: (() -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val (success, message) = repository.loginOrRegister(
+                username = username,
+                password = password,
+                fullName = fullName,
+                schoolName = schoolName,
+                tscNumber = tscNumber,
+                phone = phone
+            )
+            if (success) {
+                _uiState.value = _uiState.value.copy(
+                    isLoginDialogVisible = false,
+                    authErrorMessage = null,
+                    snackbarMessage = message
+                )
+                onSuccess?.invoke()
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    authErrorMessage = message,
+                    snackbarMessage = message
+                )
+            }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            repository.logout()
+            _uiState.value = _uiState.value.copy(
+                isProfileDialogVisible = false,
+                snackbarMessage = "Logged out successfully."
+            )
+        }
+    }
+
+    fun syncUserCredentials() {
+        viewModelScope.launch {
+            val updated = repository.syncUser()
+            if (updated != null) {
+                _uiState.value = _uiState.value.copy(
+                    snackbarMessage = "User credentials & download quota synchronized! (${updated.totalAvailableDownloads} downloads available)"
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoginDialogVisible = true,
+                    snackbarMessage = "Please log in to synchronize."
+                )
+            }
+        }
+    }
+
+    fun updateUserProfile(user: UserAccount) {
+        viewModelScope.launch {
+            repository.updateUserProfile(user)
+            _uiState.value = _uiState.value.copy(
+                isProfileDialogVisible = false,
+                snackbarMessage = "Teacher profile updated."
+            )
+        }
+    }
+
+    /**
+     * Attempts to consume a download quota credit.
+     * If user is not logged in, opens login dialog.
+     * If user has 0 downloads left, opens M-PESA payment dialog.
+     * If user has downloads available, decrements quota and executes onPermitted.
+     */
+    fun performGatedDownload(
+        onPermitted: () -> Unit
+    ) {
+        viewModelScope.launch {
+            val user = repository.getCurrentUser()
+            if (user == null) {
+                _uiState.value = _uiState.value.copy(
+                    isLoginDialogVisible = true,
+                    snackbarMessage = "Please log in to download documents (3 Free downloads for new users!)"
+                )
+                return@launch
+            }
+
+            val (allowed, msg) = repository.tryConsumeDownloadQuota()
+            if (allowed) {
+                _uiState.value = _uiState.value.copy(snackbarMessage = msg)
+                onPermitted()
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isPaymentDialogVisible = true,
+                    snackbarMessage = msg
+                )
+            }
+        }
+    }
+
+    fun topUpMpesaCredits(
+        transactionCode: String,
+        amountKes: Int,
+        downloadsCount: Int,
+        onSuccess: (() -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val (success, message) = repository.addMpesaDownloadCredits(
+                transactionCode = transactionCode,
+                amountKes = amountKes,
+                downloadsCount = downloadsCount
+            )
+            _uiState.value = _uiState.value.copy(
+                isPaymentDialogVisible = !success,
+                snackbarMessage = message
+            )
+            if (success) {
+                onSuccess?.invoke()
+            }
+        }
     }
 
     fun viewSchemeDoc(scheme: SchemeOfWork) {

@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.LessonPlan
 import com.example.data.model.SchemeLessonRow
 import com.example.data.model.SchemeOfWork
@@ -64,9 +65,12 @@ import com.example.ui.components.DownloadDocumentDialog
 import com.example.ui.components.EditHeaderDialog
 import com.example.ui.components.EditRowDialog
 import com.example.ui.components.ExportableDoc
+import com.example.ui.components.MpesaPaymentDialog
 import com.example.ui.components.SchemlyHeaderCard
 import com.example.ui.components.SchemlyTableGrid
 import com.example.ui.components.SchemlyTopBar
+import com.example.ui.components.UserAuthDialog
+import com.example.ui.components.UserProfileDialog
 import com.example.ui.theme.AmberTertiary
 import com.example.ui.theme.IndigoPrimary
 import com.example.ui.theme.TealSecondary
@@ -87,6 +91,7 @@ fun SchemeEditorScreen(
 ) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
 
     LaunchedEffect(uiState.snackbarMessage) {
         uiState.snackbarMessage?.let {
@@ -111,7 +116,11 @@ fun SchemeEditorScreen(
                 title = "${scheme.learningArea} - ${scheme.grade}",
                 subtitle = "${scheme.schoolName} • ${scheme.term} ${scheme.year}",
                 currentScreen = "scheme_editor",
+                currentUser = currentUser,
                 onNavigateHome = onNavigateHome,
+                onOpenAuth = { viewModel.showLoginDialog(true) },
+                onOpenProfile = { viewModel.showProfileDialog(true) },
+                onSync = { viewModel.syncUserCredentials() },
                 onOpenWordViewer = { onOpenWordViewer(scheme) },
                 onShareWordDoc = {
                     val html = WordDocExporter.generateSchemeWordHtml(scheme)
@@ -350,7 +359,44 @@ fun SchemeEditorScreen(
     if (showDownloadDialog) {
         DownloadDocumentDialog(
             doc = ExportableDoc.Scheme(scheme),
-            onDismiss = { showDownloadDialog = false }
+            user = currentUser,
+            onDismiss = { showDownloadDialog = false },
+            onGatedDownload = { perform -> viewModel.performGatedDownload(perform) },
+            onTopUpMpesa = { viewModel.showPaymentDialog(true) }
+        )
+    }
+
+    if (uiState.isLoginDialogVisible) {
+        UserAuthDialog(
+            onDismiss = { viewModel.showLoginDialog(false) },
+            errorMessage = uiState.authErrorMessage,
+            onLoginOrRegister = { u, p, name, school, tsc, phone ->
+                viewModel.loginOrRegister(u, p, name, school, tsc, phone)
+            }
+        )
+    }
+
+    if (uiState.isPaymentDialogVisible) {
+        MpesaPaymentDialog(
+            onDismiss = { viewModel.showPaymentDialog(false) },
+            currentBalance = currentUser?.totalAvailableDownloads ?: 0,
+            onVerifyPayment = { code, amount, count ->
+                viewModel.topUpMpesaCredits(code, amount, count)
+            }
+        )
+    }
+
+    if (uiState.isProfileDialogVisible && currentUser != null) {
+        UserProfileDialog(
+            user = currentUser!!,
+            onDismiss = { viewModel.showProfileDialog(false) },
+            onSync = { viewModel.syncUserCredentials() },
+            onTopUpMpesa = {
+                viewModel.showProfileDialog(false)
+                viewModel.showPaymentDialog(true)
+            },
+            onUpdateProfile = { updated -> viewModel.updateUserProfile(updated) },
+            onLogout = { viewModel.logout() }
         )
     }
 

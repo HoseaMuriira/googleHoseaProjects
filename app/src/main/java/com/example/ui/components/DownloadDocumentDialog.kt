@@ -53,6 +53,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.model.LessonPlan
 import com.example.data.model.SchemeOfWork
+import com.example.data.model.UserAccount
 import com.example.ui.theme.AmberTertiary
 import com.example.ui.theme.IndigoPrimary
 import com.example.ui.theme.TealSecondary
@@ -69,7 +70,10 @@ sealed class ExportableDoc {
 @Composable
 fun DownloadDocumentDialog(
     doc: ExportableDoc,
+    user: UserAccount? = null,
     onDismiss: () -> Unit,
+    onGatedDownload: ((perform: () -> Unit) -> Unit)? = null,
+    onTopUpMpesa: (() -> Unit)? = null,
     onPrintWebView: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -162,6 +166,64 @@ fun DownloadDocumentDialog(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+                    // Download Quota & M-PESA Balance Banner
+                    if (user != null) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (user.totalAvailableDownloads > 0) TealSecondary.copy(alpha = 0.1f) else Color(0xFFFEF2F2),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (user.totalAvailableDownloads > 0) TealSecondary.copy(alpha = 0.3f) else Color(0xFFFCA5A5)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (user.totalAvailableDownloads > 0) "⚡" else "⚠️",
+                                        fontSize = 16.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = if (user.freeDownloadsRemaining > 0) {
+                                                "${user.freeDownloadsRemaining}/3 Free Downloads Left"
+                                            } else if (user.paidDownloadsRemaining > 0) {
+                                                "${user.paidDownloadsRemaining} Paid Downloads Left"
+                                            } else {
+                                                "0 Downloads Left (KES 10/doc)"
+                                            },
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = if (user.totalAvailableDownloads > 0) TealSecondary else Color(0xFFDC2626)
+                                        )
+                                        Text(
+                                            text = if (user.totalAvailableDownloads > 0) "Auto-synced with @${user.username}" else "Pay KES 10 via Safaricom M-PESA: 0748053644",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                if (onTopUpMpesa != null) {
+                                    Button(
+                                        onClick = onTopUpMpesa,
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF008751)),
+                                        shape = RoundedCornerShape(6.dp),
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                        modifier = Modifier.height(28.dp)
+                                    ) {
+                                        Text("Top Up", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Document Details Preview Card
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -202,6 +264,41 @@ fun DownloadDocumentDialog(
                         color = IndigoPrimary
                     )
 
+                    // Helper to execute download
+                    val executePdfDownload = {
+                        isDownloading = true
+                        try {
+                            val pdfFile = when (doc) {
+                                is ExportableDoc.Scheme -> PdfExporter.generateSchemePdf(context, doc.scheme)
+                                is ExportableDoc.Lesson -> PdfExporter.generateLessonPlanPdf(context, doc.plan)
+                            }
+                            val savedFile = ShareUtils.downloadPdfDoc(context, fileName, pdfFile)
+                            downloadedFile = savedFile
+                            downloadedType = "application/pdf"
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Export error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        } finally {
+                            isDownloading = false
+                        }
+                    }
+
+                    val executeWordDownload = {
+                        isDownloading = true
+                        try {
+                            val html = when (doc) {
+                                is ExportableDoc.Scheme -> WordDocExporter.generateSchemeWordHtml(doc.scheme)
+                                is ExportableDoc.Lesson -> WordDocExporter.generateLessonPlanWordHtml(doc.plan)
+                            }
+                            val savedFile = ShareUtils.downloadWordDoc(context, fileName, html)
+                            downloadedFile = savedFile
+                            downloadedType = "application/msword"
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Export error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        } finally {
+                            isDownloading = false
+                        }
+                    }
+
                     // Option 1: PDF Document Card
                     DownloadOptionCard(
                         title = "PDF Document (.pdf)",
@@ -211,19 +308,10 @@ fun DownloadDocumentDialog(
                         icon = Icons.Default.PictureAsPdf,
                         iconTint = Color(0xFFDC2626),
                         onDownload = {
-                            isDownloading = true
-                            try {
-                                val pdfFile = when (doc) {
-                                    is ExportableDoc.Scheme -> PdfExporter.generateSchemePdf(context, doc.scheme)
-                                    is ExportableDoc.Lesson -> PdfExporter.generateLessonPlanPdf(context, doc.plan)
-                                }
-                                val savedFile = ShareUtils.downloadPdfDoc(context, fileName, pdfFile)
-                                downloadedFile = savedFile
-                                downloadedType = "application/pdf"
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Export error: ${e.message}", Toast.LENGTH_SHORT).show()
-                            } finally {
-                                isDownloading = false
+                            if (onGatedDownload != null) {
+                                onGatedDownload { executePdfDownload() }
+                            } else {
+                                executePdfDownload()
                             }
                         },
                         onShare = {
@@ -244,19 +332,10 @@ fun DownloadDocumentDialog(
                         icon = Icons.Default.Description,
                         iconTint = Color(0xFF0284C7),
                         onDownload = {
-                            isDownloading = true
-                            try {
-                                val html = when (doc) {
-                                    is ExportableDoc.Scheme -> WordDocExporter.generateSchemeWordHtml(doc.scheme)
-                                    is ExportableDoc.Lesson -> WordDocExporter.generateLessonPlanWordHtml(doc.plan)
-                                }
-                                val savedFile = ShareUtils.downloadWordDoc(context, fileName, html)
-                                downloadedFile = savedFile
-                                downloadedType = "application/msword"
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Export error: ${e.message}", Toast.LENGTH_SHORT).show()
-                            } finally {
-                                isDownloading = false
+                            if (onGatedDownload != null) {
+                                onGatedDownload { executeWordDownload() }
+                            } else {
+                                executeWordDownload()
                             }
                         },
                         onShare = {

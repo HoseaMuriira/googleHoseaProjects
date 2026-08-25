@@ -49,10 +49,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.LessonPlan
 import com.example.ui.components.DownloadDocumentDialog
 import com.example.ui.components.ExportableDoc
+import com.example.ui.components.MpesaPaymentDialog
 import com.example.ui.components.SchemlyTopBar
+import com.example.ui.components.UserAuthDialog
+import com.example.ui.components.UserProfileDialog
 import com.example.ui.theme.AmberTertiary
 import com.example.ui.theme.AttitudeColor
 import com.example.ui.theme.IndigoPrimary
@@ -75,6 +79,7 @@ fun LessonPlanEditorScreen(
 ) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
 
     LaunchedEffect(uiState.snackbarMessage) {
         uiState.snackbarMessage?.let {
@@ -114,7 +119,11 @@ fun LessonPlanEditorScreen(
                 title = "Lesson Plan (W${plan.week} L${plan.lessonNumber})",
                 subtitle = "${plan.grade} ${plan.learningArea}",
                 currentScreen = "lesson_editor",
+                currentUser = currentUser,
                 onNavigateHome = onNavigateHome,
+                onOpenAuth = { viewModel.showLoginDialog(true) },
+                onOpenProfile = { viewModel.showProfileDialog(true) },
+                onSync = { viewModel.syncUserCredentials() },
                 onOpenWordViewer = { onOpenWordViewer(plan) },
                 onShareWordDoc = {
                     val html = WordDocExporter.generateLessonPlanWordHtml(plan)
@@ -601,7 +610,44 @@ fun LessonPlanEditorScreen(
     if (showDownloadDialog) {
         DownloadDocumentDialog(
             doc = ExportableDoc.Lesson(plan),
-            onDismiss = { showDownloadDialog = false }
+            user = currentUser,
+            onDismiss = { showDownloadDialog = false },
+            onGatedDownload = { perform -> viewModel.performGatedDownload(perform) },
+            onTopUpMpesa = { viewModel.showPaymentDialog(true) }
+        )
+    }
+
+    if (uiState.isLoginDialogVisible) {
+        UserAuthDialog(
+            onDismiss = { viewModel.showLoginDialog(false) },
+            errorMessage = uiState.authErrorMessage,
+            onLoginOrRegister = { u, p, name, school, tsc, phone ->
+                viewModel.loginOrRegister(u, p, name, school, tsc, phone)
+            }
+        )
+    }
+
+    if (uiState.isPaymentDialogVisible) {
+        MpesaPaymentDialog(
+            onDismiss = { viewModel.showPaymentDialog(false) },
+            currentBalance = currentUser?.totalAvailableDownloads ?: 0,
+            onVerifyPayment = { code, amount, count ->
+                viewModel.topUpMpesaCredits(code, amount, count)
+            }
+        )
+    }
+
+    if (uiState.isProfileDialogVisible && currentUser != null) {
+        UserProfileDialog(
+            user = currentUser!!,
+            onDismiss = { viewModel.showProfileDialog(false) },
+            onSync = { viewModel.syncUserCredentials() },
+            onTopUpMpesa = {
+                viewModel.showProfileDialog(false)
+                viewModel.showPaymentDialog(true)
+            },
+            onUpdateProfile = { updated -> viewModel.updateUserProfile(updated) },
+            onLogout = { viewModel.logout() }
         )
     }
 }

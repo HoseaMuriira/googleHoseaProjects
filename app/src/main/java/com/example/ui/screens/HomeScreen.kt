@@ -75,6 +75,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.LessonPlan
 import com.example.data.model.SchemeOfWork
 import com.example.data.repository.KicdCurriculumData
@@ -82,7 +83,10 @@ import com.example.ui.components.CreateSchemeDialog
 import com.example.ui.components.DownloadDocumentDialog
 import com.example.ui.components.ExportableDoc
 import com.example.ui.components.GenerateLessonPlanDialog
+import com.example.ui.components.MpesaPaymentDialog
 import com.example.ui.components.SchemlyTopBar
+import com.example.ui.components.UserAuthDialog
+import com.example.ui.components.UserProfileDialog
 import com.example.ui.theme.AmberTertiary
 import com.example.ui.theme.AttitudeColor
 import com.example.ui.theme.IndigoPrimary
@@ -110,6 +114,7 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
 
     LaunchedEffect(uiState.snackbarMessage) {
         uiState.snackbarMessage?.let {
@@ -135,10 +140,14 @@ fun HomeScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             SchemlyTopBar(
-                title = "Schemly CBC Planner",
+                title = "Hostech Planner",
                 subtitle = "Junior School Grade 7-9 Schemes & Lesson Plans",
                 currentScreen = "home",
+                currentUser = currentUser,
                 onNavigateHome = {},
+                onOpenAuth = { viewModel.showLoginDialog(true) },
+                onOpenProfile = { viewModel.showProfileDialog(true) },
+                onSync = { viewModel.syncUserCredentials() },
                 onOpenAIHelper = { viewModel.showAIDialog(true) }
             )
         },
@@ -503,7 +512,44 @@ fun HomeScreen(
     activeExportDoc?.let { exportDoc ->
         DownloadDocumentDialog(
             doc = exportDoc,
-            onDismiss = { activeExportDoc = null }
+            user = currentUser,
+            onDismiss = { activeExportDoc = null },
+            onGatedDownload = { perform -> viewModel.performGatedDownload(perform) },
+            onTopUpMpesa = { viewModel.showPaymentDialog(true) }
+        )
+    }
+
+    if (uiState.isLoginDialogVisible) {
+        UserAuthDialog(
+            onDismiss = { viewModel.showLoginDialog(false) },
+            errorMessage = uiState.authErrorMessage,
+            onLoginOrRegister = { u, p, name, school, tsc, phone ->
+                viewModel.loginOrRegister(u, p, name, school, tsc, phone)
+            }
+        )
+    }
+
+    if (uiState.isPaymentDialogVisible) {
+        MpesaPaymentDialog(
+            onDismiss = { viewModel.showPaymentDialog(false) },
+            currentBalance = currentUser?.totalAvailableDownloads ?: 0,
+            onVerifyPayment = { code, amount, count ->
+                viewModel.topUpMpesaCredits(code, amount, count)
+            }
+        )
+    }
+
+    if (uiState.isProfileDialogVisible && currentUser != null) {
+        UserProfileDialog(
+            user = currentUser!!,
+            onDismiss = { viewModel.showProfileDialog(false) },
+            onSync = { viewModel.syncUserCredentials() },
+            onTopUpMpesa = {
+                viewModel.showProfileDialog(false)
+                viewModel.showPaymentDialog(true)
+            },
+            onUpdateProfile = { updated -> viewModel.updateUserProfile(updated) },
+            onLogout = { viewModel.logout() }
         )
     }
 

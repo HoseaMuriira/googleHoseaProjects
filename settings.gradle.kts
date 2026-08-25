@@ -22,7 +22,7 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Schemly CBC Planner"
+rootProject.name = "Hostech Planner"
 
 
 include(":app")
