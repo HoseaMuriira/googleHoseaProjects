@@ -84,6 +84,7 @@ import com.example.ui.components.DownloadDocumentDialog
 import com.example.ui.components.ExportableDoc
 import com.example.ui.components.GenerateLessonPlanDialog
 import com.example.ui.components.MpesaPaymentDialog
+import com.example.ui.components.PaymentStatusDialog
 import com.example.ui.components.SchemlyTopBar
 import com.example.ui.components.UserAuthDialog
 import com.example.ui.components.UserProfileDialog
@@ -533,9 +534,18 @@ fun HomeScreen(
         MpesaPaymentDialog(
             onDismiss = { viewModel.showPaymentDialog(false) },
             currentBalance = currentUser?.totalAvailableDownloads ?: 0,
+            userPhone = currentUser?.phone ?: "",
             onVerifyPayment = { code, amount, count ->
                 viewModel.topUpMpesaCredits(code, amount, count)
             }
+        )
+    }
+
+    if (uiState.isPaymentSuccessDialogVisible && uiState.paymentStatusTransaction != null) {
+        PaymentStatusDialog(
+            transaction = uiState.paymentStatusTransaction!!,
+            currentUser = currentUser,
+            onDismiss = { viewModel.dismissPaymentStatusDialog() }
         )
     }
 

@@ -54,6 +54,7 @@ import com.example.data.model.LessonPlan
 import com.example.ui.components.DownloadDocumentDialog
 import com.example.ui.components.ExportableDoc
 import com.example.ui.components.MpesaPaymentDialog
+import com.example.ui.components.PaymentStatusDialog
 import com.example.ui.components.SchemlyTopBar
 import com.example.ui.components.UserAuthDialog
 import com.example.ui.components.UserProfileDialog

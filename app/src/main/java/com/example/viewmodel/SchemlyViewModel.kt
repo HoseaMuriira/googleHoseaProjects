@@ -11,6 +11,7 @@ import com.example.data.model.SchemeOfWork
 import com.example.data.model.UserAccount
 import com.example.data.repository.KicdCurriculumData
 import com.example.data.repository.SchemeRepository
+import com.example.util.NotificationHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -41,6 +42,8 @@ data class SchemlyUiState(
     val isLoginDialogVisible: Boolean = false,
     val isPaymentDialogVisible: Boolean = false,
     val isProfileDialogVisible: Boolean = false,
+    val isPaymentSuccessDialogVisible: Boolean = false,
+    val paymentStatusTransaction: PaymentTransaction? = null,
     val authErrorMessage: String? = null,
     val snackbarMessage: String? = null
 )
@@ -535,19 +538,49 @@ class SchemlyViewModel(application: Application) : AndroidViewModel(application)
         onSuccess: (() -> Unit)? = null
     ) {
         viewModelScope.launch {
-            val (success, message) = repository.addMpesaDownloadCredits(
+            val (success, message, transaction) = repository.addMpesaDownloadCredits(
                 transactionCode = transactionCode,
                 amountKes = amountKes,
                 downloadsCount = downloadsCount
             )
-            _uiState.value = _uiState.value.copy(
-                isPaymentDialogVisible = !success,
-                snackbarMessage = message
-            )
-            if (success) {
+
+            if (success && transaction != null) {
+                val updatedUser = repository.getCurrentUser()
+                val totalRemaining = updatedUser?.totalAvailableDownloads ?: downloadsCount
+
+                // Trigger Android system status notification
+                try {
+                    NotificationHelper.showPaymentSuccessNotification(
+                        context = getApplication(),
+                        transactionId = transaction.transactionId,
+                        amountKes = amountKes,
+                        downloadsAdded = downloadsCount,
+                        totalDownloadsRemaining = totalRemaining
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    isPaymentDialogVisible = false,
+                    isPaymentSuccessDialogVisible = true,
+                    paymentStatusTransaction = transaction,
+                    snackbarMessage = message
+                )
                 onSuccess?.invoke()
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    snackbarMessage = message
+                )
             }
         }
+    }
+
+    fun dismissPaymentStatusDialog() {
+        _uiState.value = _uiState.value.copy(
+            isPaymentSuccessDialogVisible = false,
+            paymentStatusTransaction = null
+        )
     }
 
     fun viewSchemeDoc(scheme: SchemeOfWork) {

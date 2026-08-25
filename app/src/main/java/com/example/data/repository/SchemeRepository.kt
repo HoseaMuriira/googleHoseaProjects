@@ -163,11 +163,11 @@ class SchemeRepository(
         transactionCode: String,
         amountKes: Int,
         downloadsCount: Int
-    ): Pair<Boolean, String> {
-        val user = userDao.getActiveUserSync() ?: return Pair(false, "Please log in first.")
+    ): Triple<Boolean, String, PaymentTransaction?> {
+        val user = userDao.getActiveUserSync() ?: return Triple(false, "Please log in first.", null)
         val cleanCode = transactionCode.trim().uppercase()
         if (cleanCode.length < 5) {
-            return Pair(false, "Please enter a valid M-PESA confirmation code.")
+            return Triple(false, "Please enter a valid M-PESA confirmation code.", null)
         }
 
         val transaction = PaymentTransaction(
@@ -187,7 +187,7 @@ class SchemeRepository(
         )
         userDao.updateUser(updatedUser)
 
-        return Pair(true, "Payment verified! Added $downloadsCount download${if (downloadsCount == 1) "" else "s"} to your account.")
+        return Triple(true, "Payment verified! Added $downloadsCount download${if (downloadsCount == 1) "" else "s"} to your account.", transaction)
     }
 
     fun getTransactions(username: String): Flow<List<PaymentTransaction>> {

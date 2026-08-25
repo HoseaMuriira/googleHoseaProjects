@@ -66,6 +66,7 @@ import com.example.ui.components.EditHeaderDialog
 import com.example.ui.components.EditRowDialog
 import com.example.ui.components.ExportableDoc
 import com.example.ui.components.MpesaPaymentDialog
+import com.example.ui.components.PaymentStatusDialog
 import com.example.ui.components.SchemlyHeaderCard
 import com.example.ui.components.SchemlyTableGrid
 import com.example.ui.components.SchemlyTopBar
@@ -380,9 +381,18 @@ fun SchemeEditorScreen(
         MpesaPaymentDialog(
             onDismiss = { viewModel.showPaymentDialog(false) },
             currentBalance = currentUser?.totalAvailableDownloads ?: 0,
+            userPhone = currentUser?.phone ?: "",
             onVerifyPayment = { code, amount, count ->
                 viewModel.topUpMpesaCredits(code, amount, count)
             }
+        )
+    }
+
+    if (uiState.isPaymentSuccessDialogVisible && uiState.paymentStatusTransaction != null) {
+        PaymentStatusDialog(
+            transaction = uiState.paymentStatusTransaction!!,
+            currentUser = currentUser,
+            onDismiss = { viewModel.dismissPaymentStatusDialog() }
         )
     }
 
