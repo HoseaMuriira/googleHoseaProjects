@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
@@ -49,6 +50,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.LessonPlan
+import com.example.ui.components.DownloadDocumentDialog
+import com.example.ui.components.ExportableDoc
 import com.example.ui.components.SchemlyTopBar
 import com.example.ui.theme.AmberTertiary
 import com.example.ui.theme.AttitudeColor
@@ -81,6 +84,10 @@ fun LessonPlanEditorScreen(
     }
 
     var schoolName by remember { mutableStateOf(plan.schoolName) }
+    var teacherName by remember { mutableStateOf(plan.teacherName) }
+    var teacherTscNo by remember { mutableStateOf(plan.teacherTscNo) }
+    var teacherContact by remember { mutableStateOf(plan.teacherContact) }
+    var className by remember { mutableStateOf(plan.className) }
     var date by remember { mutableStateOf(plan.date) }
     var time by remember { mutableStateOf(plan.time) }
     var roll by remember { mutableStateOf(plan.roll) }
@@ -98,6 +105,7 @@ fun LessonPlanEditorScreen(
     var step4Conclusion by remember { mutableStateOf(plan.step4Conclusion) }
     var extendedActivity by remember { mutableStateOf(plan.extendedActivity) }
     var reflection by remember { mutableStateOf(plan.reflection) }
+    var showDownloadDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -153,6 +161,10 @@ fun LessonPlanEditorScreen(
                                 onClick = {
                                     val updated = plan.copy(
                                         schoolName = schoolName,
+                                        teacherName = teacherName,
+                                        teacherTscNo = teacherTscNo,
+                                        teacherContact = teacherContact,
+                                        className = className,
                                         date = date,
                                         time = time,
                                         roll = roll,
@@ -183,6 +195,17 @@ fun LessonPlanEditorScreen(
                             }
 
                             Button(
+                                onClick = { showDownloadDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Download, contentDescription = null, tint = Color.White, modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Download", fontSize = 11.sp, color = Color.White)
+                            }
+
+                            Button(
                                 onClick = { onOpenWordViewer(plan) },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
                                 shape = RoundedCornerShape(8.dp),
@@ -197,7 +220,68 @@ fun LessonPlanEditorScreen(
                 }
             }
 
-            // Meta Info Card
+            // Teacher's Information Card
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "TEACHER'S INFORMATION",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = IndigoPrimary
+                            )
+                            Surface(
+                                color = IndigoPrimary.copy(alpha = 0.08f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "Created: ${plan.formattedCreatedDateTime()}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = IndigoPrimary,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = teacherName,
+                            onValueChange = { teacherName = it },
+                            label = { Text("Teacher's Full Name") },
+                            placeholder = { Text("e.g. Tr. Jane Wanjiku") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = teacherTscNo,
+                                onValueChange = { teacherTscNo = it },
+                                label = { Text("TSC No. / ID") },
+                                placeholder = { Text("e.g. TSC/847291") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = teacherContact,
+                                onValueChange = { teacherContact = it },
+                                label = { Text("Contact / Phone / Email") },
+                                placeholder = { Text("e.g. +254 700 000000") },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Meta Info & Class Card
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -206,30 +290,39 @@ fun LessonPlanEditorScreen(
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            text = "LESSON DETAILS & SCHEDULE",
+                            text = "CLASS & LESSON SCHEDULE",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = IndigoPrimary
                         )
 
-                        OutlinedTextField(
-                            value = schoolName,
-                            onValueChange = { schoolName = it },
-                            label = { Text("School Name") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = schoolName,
+                                onValueChange = { schoolName = it },
+                                label = { Text("School Name") },
+                                modifier = Modifier.weight(1.2f)
+                            )
+                            OutlinedTextField(
+                                value = className,
+                                onValueChange = { className = it },
+                                label = { Text("Class / Stream") },
+                                placeholder = { Text("e.g. Grade 7 East") },
+                                modifier = Modifier.weight(0.8f)
+                            )
+                        }
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = date,
                                 onValueChange = { date = it },
-                                label = { Text("Date (e.g. DD/MM/YYYY)") },
+                                label = { Text("Lesson Date (e.g. DD/MM/YYYY)") },
                                 modifier = Modifier.weight(1f)
                             )
                             OutlinedTextField(
                                 value = time,
                                 onValueChange = { time = it },
-                                label = { Text("Time (e.g. 8:00 - 8:40 AM)") },
+                                label = { Text("Lesson Time / Duration") },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -503,5 +596,12 @@ fun LessonPlanEditorScreen(
                 }
             }
         }
+    }
+
+    if (showDownloadDialog) {
+        DownloadDocumentDialog(
+            doc = ExportableDoc.Lesson(plan),
+            onDismiss = { showDownloadDialog = false }
+        )
     }
 }

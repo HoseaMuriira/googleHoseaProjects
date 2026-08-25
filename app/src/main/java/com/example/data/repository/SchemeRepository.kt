@@ -61,12 +61,16 @@ class SchemeRepository(
      * Creates a Lesson Plan draft populated from a specific SchemeLessonRow
      */
     fun createLessonPlanFromSchemeRow(scheme: SchemeOfWork, row: SchemeLessonRow): LessonPlan {
+        val todayStr = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date())
         return LessonPlan(
             id = UUID.randomUUID().toString(),
             schemeId = scheme.id,
             schoolName = scheme.schoolName,
             teacherName = scheme.teacherName,
-            date = "",
+            teacherTscNo = "",
+            teacherContact = "",
+            className = "${scheme.grade} East",
+            date = todayStr,
             time = "8:00 AM - 8:40 AM",
             roll = "45 Learners",
             grade = scheme.grade,
@@ -89,6 +93,7 @@ class SchemeRepository(
             step4Conclusion = "Learners summarize key learning takeaways. Teacher clarifies misconceptions and poses closing wrap-up questions.",
             extendedActivity = "Learners observe real-life applications at home/community and note observations in their exercise books.",
             reflection = "Lesson objectives achieved satisfactorily. Majority of learners engaged actively in hands-on group tasks.",
+            createdAt = System.currentTimeMillis(),
             lastModified = System.currentTimeMillis()
         )
     }

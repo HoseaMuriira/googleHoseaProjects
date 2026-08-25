@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.School
@@ -32,6 +33,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -47,6 +49,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.SchemeLessonRow
 import com.example.data.repository.KicdCurriculumData
 import com.example.ui.components.SchemlyTopBar
 import com.example.ui.theme.AttitudeColor
@@ -63,6 +66,7 @@ fun SyllabusGuideScreen(
     viewModel: SchemlyViewModel,
     onNavigateHome: () -> Unit,
     onGenerateFromSyllabus: (grade: String, subject: String) -> Unit,
+    onGenerateLessonPlan: (grade: String, subject: String, row: SchemeLessonRow) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedGrade by remember { mutableStateOf("Grade 7") }
@@ -253,6 +257,18 @@ fun SyllabusGuideScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
+                            }
+
+                            Button(
+                                onClick = { onGenerateLessonPlan(selectedGrade, selectedSubject, row) },
+                                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary.copy(alpha = 0.9f)),
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Description, contentDescription = null, tint = Color.White, modifier = Modifier.height(13.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Plan", fontSize = 11.sp, color = Color.White)
                             }
                         }
 

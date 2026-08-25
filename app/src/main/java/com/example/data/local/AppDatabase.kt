@@ -10,7 +10,7 @@ import com.example.data.model.SchemeOfWork
 
 @Database(
     entities = [SchemeOfWork::class, LessonPlan::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

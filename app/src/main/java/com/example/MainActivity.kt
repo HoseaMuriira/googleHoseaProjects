@@ -155,6 +155,20 @@ fun SchemlyApp(viewModel: SchemlyViewModel) {
                     } else {
                         currentScreen = AppScreen.Home
                     }
+                },
+                onGenerateLessonPlan = { grade, subject, row ->
+                    val mockScheme = SchemeOfWork(
+                        schoolName = "JUNIOR SECONDARY SCHOOL",
+                        grade = grade,
+                        learningArea = subject,
+                        term = "Term 1",
+                        year = "2026",
+                        teacherName = ""
+                    )
+                    viewModel.generateLessonPlanFromRow(mockScheme, row) { plan ->
+                        viewModel.selectLessonPlan(plan)
+                        currentScreen = AppScreen.LessonPlanEditor(plan)
+                    }
                 }
             )
         }

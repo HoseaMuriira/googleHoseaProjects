@@ -52,6 +52,9 @@ data class LessonPlan(
     val schemeId: String? = null,
     val schoolName: String = "JUNIOR SECONDARY SCHOOL",
     val teacherName: String = "",
+    val teacherTscNo: String = "",
+    val teacherContact: String = "",
+    val className: String = "Grade 7 East", // Class / Stream e.g. Grade 7 East, 8B
     val date: String = "",
     val time: String = "8:00 AM - 8:40 AM",
     val roll: String = "45 Learners",
@@ -75,5 +78,15 @@ data class LessonPlan(
     val step4Conclusion: String = "Learners summarize key takeaways. Teacher reinforces core knowledge, skills, and values. Oral wrap-up questions.",
     val extendedActivity: String = "Learners explore real-life application at home / community and note observations.",
     val reflection: String = "Most learners grasped the concepts effectively. A few required additional guided practice in group activities.",
+    val createdAt: Long = System.currentTimeMillis(),
     val lastModified: Long = System.currentTimeMillis()
-)
+) {
+    fun formattedCreatedDateTime(): String {
+        return try {
+            val sdf = java.text.SimpleDateFormat("dd MMM yyyy, hh:mm a", java.util.Locale.getDefault())
+            sdf.format(java.util.Date(createdAt))
+        } catch (e: Exception) {
+            "25 Aug 2026, 10:45 AM"
+        }
+    }
+}

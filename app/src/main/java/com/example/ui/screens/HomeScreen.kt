@@ -26,6 +26,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Palette
@@ -58,6 +60,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -67,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -75,9 +79,17 @@ import com.example.data.model.LessonPlan
 import com.example.data.model.SchemeOfWork
 import com.example.data.repository.KicdCurriculumData
 import com.example.ui.components.CreateSchemeDialog
+import com.example.ui.components.DownloadDocumentDialog
+import com.example.ui.components.ExportableDoc
+import com.example.ui.components.GenerateLessonPlanDialog
 import com.example.ui.components.SchemlyTopBar
 import com.example.ui.theme.AmberTertiary
+import com.example.ui.theme.AttitudeColor
 import com.example.ui.theme.IndigoPrimary
+import com.example.ui.theme.InquiryBadgeBg
+import com.example.ui.theme.InquiryBadgeText
+import com.example.ui.theme.KnowledgeColor
+import com.example.ui.theme.SkillColor
 import com.example.ui.theme.TealSecondary
 import com.example.util.ShareUtils
 import com.example.util.WordDocExporter
@@ -108,6 +120,7 @@ fun HomeScreen(
 
     val gradeTabs = listOf("All", "Grade 7", "Grade 8", "Grade 9")
     var selectedGradeIndex by remember { mutableIntStateOf(0) }
+    var activeExportDoc by remember { mutableStateOf<ExportableDoc?>(null) }
 
     val filteredSchemes = schemes.filter { scheme ->
         val matchesGrade = if (selectedGradeIndex == 0) true else scheme.grade == gradeTabs[selectedGradeIndex]
@@ -211,7 +224,10 @@ fun HomeScreen(
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Button(
                                 onClick = { viewModel.showCreateSchemeDialog(true) },
                                 colors = ButtonDefaults.buttonColors(containerColor = AmberTertiary),
@@ -219,7 +235,17 @@ fun HomeScreen(
                             ) {
                                 Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = Color.White)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Create Scheme", fontWeight = FontWeight.Bold, color = Color.White)
+                                Text("New Scheme", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
+                            }
+
+                            Button(
+                                onClick = { viewModel.showCreateLessonPlanDialog(true) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Description, contentDescription = null, tint = Color.White)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Generate Lesson Plan", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
                             }
 
                             OutlinedButton(
@@ -230,7 +256,7 @@ fun HomeScreen(
                             ) {
                                 Icon(imageVector = Icons.Default.MenuBook, contentDescription = null)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Syllabus Guide")
+                                Text("Syllabus", fontSize = 12.sp)
                             }
                         }
                     }
@@ -383,6 +409,7 @@ fun HomeScreen(
                         scheme = scheme,
                         onClick = { onOpenScheme(scheme) },
                         onWordDoc = { onOpenWordViewer(scheme) },
+                        onDownload = { activeExportDoc = ExportableDoc.Scheme(scheme) },
                         onShare = {
                             val html = WordDocExporter.generateSchemeWordHtml(scheme)
                             ShareUtils.shareAsWordDoc(context, "${scheme.learningArea}_${scheme.grade}_Scheme", html)
@@ -394,23 +421,73 @@ fun HomeScreen(
                 }
             }
 
-            // Recent Lesson Plans Section
-            if (lessonPlans.isNotEmpty()) {
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
+            // CBC Lesson Plans Section
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Text(
                         text = "GENERATED CBC LESSON PLANS (${lessonPlans.size})",
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        color = MaterialTheme.colorScheme.onBackground
                     )
-                }
 
+                    Button(
+                        onClick = { viewModel.showCreateLessonPlanDialog(true) },
+                        colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("+ New Plan", fontSize = 11.sp, color = Color.White)
+                    }
+                }
+            }
+
+            if (lessonPlans.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "No individual lesson plans generated yet.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            OutlinedButton(
+                                onClick = { viewModel.showCreateLessonPlanDialog(true) },
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Generate CBC Lesson Plan", fontSize = 11.5.sp)
+                            }
+                        }
+                    }
+                }
+            } else {
                 items(lessonPlans) { plan ->
                     LessonPlanCardItem(
                         plan = plan,
                         onClick = { onOpenLessonPlan(plan) },
+                        onDownload = { activeExportDoc = ExportableDoc.Lesson(plan) },
                         onShare = {
                             val html = WordDocExporter.generateLessonPlanWordHtml(plan)
                             ShareUtils.shareAsWordDoc(context, "${plan.learningArea}_LessonPlan_W${plan.week}_L${plan.lessonNumber}", html)
@@ -423,11 +500,35 @@ fun HomeScreen(
         }
     }
 
+    activeExportDoc?.let { exportDoc ->
+        DownloadDocumentDialog(
+            doc = exportDoc,
+            onDismiss = { activeExportDoc = null }
+        )
+    }
+
     if (uiState.isCreateSchemeDialogVisible) {
         CreateSchemeDialog(
             onDismiss = { viewModel.showCreateSchemeDialog(false) },
             onCreate = { grade, subject, term, school, teacher ->
                 viewModel.createNewScheme(grade, subject, term, school, teacher)
+            }
+        )
+    }
+
+    if (uiState.isCreateLessonPlanDialogVisible) {
+        GenerateLessonPlanDialog(
+            initialGrade = if (selectedGradeIndex == 0) "Grade 7" else gradeTabs[selectedGradeIndex],
+            onDismiss = { viewModel.showCreateLessonPlanDialog(false) },
+            onGenerate = { newPlan ->
+                viewModel.createLessonPlanDirectly(newPlan) { plan ->
+                    onOpenLessonPlan(plan)
+                }
+            },
+            onBatchGenerateWeek = { grade, subject, week, school, teacher ->
+                viewModel.batchGenerateWeekLessonPlans(grade, subject, week, school, teacher) { plans ->
+                    plans.firstOrNull()?.let { onOpenLessonPlan(it) }
+                }
             }
         )
     }
@@ -469,6 +570,7 @@ private fun SchemeCardItem(
     scheme: SchemeOfWork,
     onClick: () -> Unit,
     onWordDoc: () -> Unit,
+    onDownload: () -> Unit,
     onShare: () -> Unit,
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
@@ -575,10 +677,13 @@ private fun SchemeCardItem(
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                     modifier = Modifier.height(32.dp)
                 ) {
-                    Text(text = "Open 10-Col Scheme", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Open Scheme", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onDownload, modifier = Modifier.height(32.dp).width(32.dp)) {
+                        Icon(imageVector = Icons.Default.Download, contentDescription = "Download PDF / Word", tint = IndigoPrimary)
+                    }
                     IconButton(onClick = onWordDoc, modifier = Modifier.height(32.dp).width(32.dp)) {
                         Icon(imageVector = Icons.Default.Description, contentDescription = "Word Doc View", tint = Color(0xFF0284C7))
                     }
@@ -601,6 +706,7 @@ private fun SchemeCardItem(
 private fun LessonPlanCardItem(
     plan: LessonPlan,
     onClick: () -> Unit,
+    onDownload: () -> Unit,
     onShare: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -608,53 +714,151 @@ private fun LessonPlanCardItem(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            .clickable { onClick() }
+            .testTag("lesson_plan_card_${plan.id}"),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         color = AmberTertiary.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(4.dp)
+                        shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
-                            text = "W${plan.week} L${plan.lessonNumber}",
-                            fontSize = 10.5.sp,
+                            text = "WEEK ${plan.week} • LESSON ${plan.lessonNumber}",
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = AmberTertiary,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "${plan.grade} • ${plan.learningArea}",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Surface(
+                        color = IndigoPrimary.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = if (plan.className.isNotBlank()) plan.className else plan.grade,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = IndigoPrimary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.height(2.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onDownload, modifier = Modifier.height(28.dp).width(28.dp)) {
+                        Icon(imageVector = Icons.Default.Download, contentDescription = "Download PDF / Word", tint = IndigoPrimary, modifier = Modifier.height(16.dp))
+                    }
+                    IconButton(onClick = onShare, modifier = Modifier.height(28.dp).width(28.dp)) {
+                        Icon(imageVector = Icons.Default.Share, contentDescription = "Share", tint = TealSecondary, modifier = Modifier.height(16.dp))
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.height(28.dp).width(28.dp)) {
+                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.height(16.dp))
+                    }
+                }
+            }
+
+            Text(
+                text = "${plan.learningArea}: ${plan.subStrand.ifBlank { plan.strand }}",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            // Teacher Info & Scheduling Meta Strip
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(IndigoPrimary.copy(alpha = 0.05f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = plan.subStrand,
-                    fontSize = 11.5.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = if (plan.teacherName.isNotBlank()) "👤 Tr. ${plan.teacherName}" else "👤 Tr. Unassigned",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = IndigoPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "📅 ${if (plan.date.isNotBlank()) plan.date else "Lesson Date"} • ⏰ ${plan.time}",
+                    fontSize = 10.5.sp,
+                    color = Color(0xFF475569),
+                    maxLines = 1
+                )
+            }
+
+            // Creation timestamp tag
+            Text(
+                text = "🕒 Plan Created: ${plan.formattedCreatedDateTime()}",
+                fontSize = 10.sp,
+                color = Color(0xFF94A3B8),
+                fontStyle = FontStyle.Italic
+            )
+
+
+            // 3-Part Objectives Preview
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "• Knowledge: ${plan.knowledgeOutcome}",
+                    fontSize = 11.sp,
+                    color = KnowledgeColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "• Skill: ${plan.skillOutcome}",
+                    fontSize = 11.sp,
+                    color = SkillColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "• Attitude: ${plan.attitudeOutcome}",
+                    fontSize = 11.sp,
+                    color = AttitudeColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            Row {
-                IconButton(onClick = onShare) {
-                    Icon(imageVector = Icons.Default.Share, contentDescription = "Share", tint = IndigoPrimary, modifier = Modifier.height(18.dp))
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.height(18.dp))
+            // Inquiry Question Badge
+            Surface(
+                color = InquiryBadgeBg,
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.HelpOutline, contentDescription = null, tint = InquiryBadgeText, modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = plan.keyInquiryQuestion.ifBlank { "How does this concept apply in real life?" },
+                        fontSize = 11.sp,
+                        fontStyle = FontStyle.Italic,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1E1B4B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

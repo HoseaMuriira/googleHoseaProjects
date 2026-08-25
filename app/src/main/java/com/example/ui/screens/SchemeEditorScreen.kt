@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Print
@@ -44,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,8 +60,10 @@ import com.example.data.model.LessonPlan
 import com.example.data.model.SchemeLessonRow
 import com.example.data.model.SchemeOfWork
 import com.example.ui.components.AIEnhancerDialog
+import com.example.ui.components.DownloadDocumentDialog
 import com.example.ui.components.EditHeaderDialog
 import com.example.ui.components.EditRowDialog
+import com.example.ui.components.ExportableDoc
 import com.example.ui.components.SchemlyHeaderCard
 import com.example.ui.components.SchemlyTableGrid
 import com.example.ui.components.SchemlyTopBar
@@ -92,6 +96,7 @@ fun SchemeEditorScreen(
     }
 
     var selectedWeekFilter by remember { mutableIntStateOf(0) } // 0 = All Weeks, 1..9 = Specific week
+    var showDownloadDialog by remember { mutableStateOf(false) }
 
     val displayedRows = if (selectedWeekFilter == 0) {
         scheme.rows
@@ -170,10 +175,43 @@ fun SchemeEditorScreen(
 
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Button(
+                                onClick = {
+                                    val targetWeek = if (selectedWeekFilter == 0) 1 else selectedWeekFilter
+                                    viewModel.batchGenerateForSchemeWeek(scheme, targetWeek) { plans ->
+                                        plans.firstOrNull()?.let { onOpenLessonPlan(it) }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Description, contentDescription = null, tint = Color.White, modifier = Modifier.height(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (selectedWeekFilter == 0) "Generate W1 Plans" else "Generate W$selectedWeekFilter Plans",
+                                    fontSize = 11.sp,
+                                    color = Color.White
+                                )
+                            }
+
+                            Button(
+                                onClick = { showDownloadDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Download, contentDescription = null, tint = Color.White, modifier = Modifier.height(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Download", fontSize = 11.sp, color = Color.White)
+                            }
+
+                            Button(
                                 onClick = { onOpenWordViewer(scheme) },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
                                 shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                                 modifier = Modifier.height(32.dp)
                             ) {
                                 Icon(imageVector = Icons.Default.Description, contentDescription = null, tint = Color.White, modifier = Modifier.height(14.dp))
@@ -188,12 +226,12 @@ fun SchemeEditorScreen(
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = TealSecondary),
                                 shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                                 modifier = Modifier.height(32.dp)
                             ) {
                                 Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = Color.White, modifier = Modifier.height(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Export .doc", fontSize = 11.sp, color = Color.White)
+                                Text("Share", fontSize = 11.sp, color = Color.White)
                             }
                         }
                     }
@@ -272,8 +310,9 @@ fun SchemeEditorScreen(
                         viewModel.openEditRowDialog(globalIndex, row)
                     },
                     onGenerateLessonPlan = { row ->
-                        viewModel.generateLessonPlanFromRow(scheme, row)
-                        uiState.activeLessonPlan?.let { onOpenLessonPlan(it) }
+                        viewModel.generateLessonPlanFromRow(scheme, row) { createdPlan ->
+                            onOpenLessonPlan(createdPlan)
+                        }
                     },
                     onDeleteRow = { index ->
                         val row = displayedRows.getOrNull(index)
@@ -305,6 +344,13 @@ fun SchemeEditorScreen(
             onSave = { updatedRow ->
                 viewModel.saveEditingRow(updatedRow)
             }
+        )
+    }
+
+    if (showDownloadDialog) {
+        DownloadDocumentDialog(
+            doc = ExportableDoc.Scheme(scheme),
+            onDismiss = { showDownloadDialog = false }
         )
     }
 

@@ -34,6 +34,7 @@ data class SchemlyUiState(
     val editingRow: SchemeLessonRow? = null,
     val isHeaderEditDialogVisible: Boolean = false,
     val isCreateSchemeDialogVisible: Boolean = false,
+    val isCreateLessonPlanDialogVisible: Boolean = false,
     val isAIGeneratorDialogVisible: Boolean = false,
     val snackbarMessage: String? = null
 )
@@ -241,7 +242,11 @@ class SchemlyViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun generateLessonPlanFromRow(scheme: SchemeOfWork, row: SchemeLessonRow) {
+    fun generateLessonPlanFromRow(
+        scheme: SchemeOfWork,
+        row: SchemeLessonRow,
+        onCreated: ((LessonPlan) -> Unit)? = null
+    ) {
         viewModelScope.launch {
             val plan = repository.createLessonPlanFromSchemeRow(scheme, row)
             repository.saveLessonPlan(plan)
@@ -250,7 +255,81 @@ class SchemlyViewModel(application: Application) : AndroidViewModel(application)
                 docView = CurrentDocView.LessonDoc(plan),
                 snackbarMessage = "Generated Lesson Plan for Week ${row.week} Lesson ${row.lesson}!"
             )
+            onCreated?.invoke(plan)
         }
+    }
+
+    fun createLessonPlanDirectly(plan: LessonPlan, onCreated: ((LessonPlan) -> Unit)? = null) {
+        viewModelScope.launch {
+            repository.saveLessonPlan(plan)
+            _uiState.value = _uiState.value.copy(
+                activeLessonPlan = plan,
+                docView = CurrentDocView.LessonDoc(plan),
+                isCreateLessonPlanDialogVisible = false,
+                snackbarMessage = "Generated ${plan.grade} ${plan.learningArea} Lesson Plan!"
+            )
+            onCreated?.invoke(plan)
+        }
+    }
+
+    fun batchGenerateWeekLessonPlans(
+        grade: String,
+        subject: String,
+        week: Int,
+        schoolName: String,
+        teacherName: String,
+        onCreated: ((List<LessonPlan>) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val scheme = KicdCurriculumData.getSchemeFor(grade, subject, "Term 1").copy(
+                schoolName = schoolName.ifBlank { "JUNIOR SECONDARY SCHOOL" },
+                teacherName = teacherName
+            )
+            val weekRows = scheme.rows.filter { it.week == week }.ifEmpty { scheme.rows.take(5) }
+            val createdPlans = mutableListOf<LessonPlan>()
+
+            weekRows.forEach { row ->
+                val plan = repository.createLessonPlanFromSchemeRow(scheme, row)
+                repository.saveLessonPlan(plan)
+                createdPlans.add(plan)
+            }
+
+            _uiState.value = _uiState.value.copy(
+                activeLessonPlan = createdPlans.firstOrNull(),
+                docView = createdPlans.firstOrNull()?.let { CurrentDocView.LessonDoc(it) },
+                isCreateLessonPlanDialogVisible = false,
+                snackbarMessage = "Batch generated ${createdPlans.size} Lesson Plans for Week $week!"
+            )
+            onCreated?.invoke(createdPlans)
+        }
+    }
+
+    fun batchGenerateForSchemeWeek(
+        scheme: SchemeOfWork,
+        week: Int,
+        onCreated: ((List<LessonPlan>) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val weekRows = scheme.rows.filter { it.week == week }.ifEmpty { scheme.rows.take(5) }
+            val createdPlans = mutableListOf<LessonPlan>()
+
+            weekRows.forEach { row ->
+                val plan = repository.createLessonPlanFromSchemeRow(scheme, row)
+                repository.saveLessonPlan(plan)
+                createdPlans.add(plan)
+            }
+
+            _uiState.value = _uiState.value.copy(
+                activeLessonPlan = createdPlans.firstOrNull(),
+                docView = createdPlans.firstOrNull()?.let { CurrentDocView.LessonDoc(it) },
+                snackbarMessage = "Generated all ${createdPlans.size} Lesson Plans for Week $week!"
+            )
+            onCreated?.invoke(createdPlans)
+        }
+    }
+
+    fun showCreateLessonPlanDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(isCreateLessonPlanDialogVisible = show)
     }
 
     fun saveLessonPlan(updatedPlan: LessonPlan) {

@@ -259,20 +259,28 @@ object WordDocExporter {
      * Generates a fully formatted Word-compatible (.doc / HTML) Lesson Plan
      */
     fun generateLessonPlanWordHtml(plan: LessonPlan): String {
+        val teacherInfoDisplay = buildString {
+            if (plan.teacherName.isNotBlank()) append(escapeHtml(plan.teacherName)) else append("____________________")
+            if (plan.teacherTscNo.isNotBlank()) append(" (TSC: ${escapeHtml(plan.teacherTscNo)})")
+            if (plan.teacherContact.isNotBlank()) append(" | ${escapeHtml(plan.teacherContact)}")
+        }
+        val classDisplay = if (plan.className.isNotBlank()) escapeHtml(plan.className) else escapeHtml(plan.grade)
+
         return """
 <!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta charset="utf-8">
-<title>${plan.learningArea} - Lesson Plan (Week ${plan.week} Lesson ${plan.lessonNumber})</title>
+<title>${escapeHtml(plan.learningArea)} - Lesson Plan (${escapeHtml(plan.grade)} W${plan.week} L${plan.lessonNumber})</title>
 <style>
-  @page { size: portrait; margin: 1.8cm; }
+  @page { size: portrait; margin: 1.6cm; }
   body { font-family: "Calibri", Arial, sans-serif; font-size: 11pt; color: #1e293b; line-height: 1.4; }
   .header-title { text-align: center; font-size: 15pt; font-weight: bold; color: #1e3a8a; margin-bottom: 2px; }
-  .header-sub { text-align: center; font-size: 12pt; font-weight: 600; color: #475569; margin-bottom: 16px; }
+  .header-sub { text-align: center; font-size: 12pt; font-weight: 600; color: #475569; margin-bottom: 6px; }
+  .header-created { text-align: right; font-size: 9.5pt; color: #64748b; font-style: italic; margin-bottom: 12px; }
   table.meta-table, table.steps-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
   table.meta-table th, table.meta-table td, table.steps-table th, table.steps-table td {
-    border: 1px solid #475569; padding: 7px 10px; font-size: 10.5pt; text-align: left; vertical-align: top;
+    border: 1px solid #475569; padding: 6px 9px; font-size: 10.5pt; text-align: left; vertical-align: middle;
   }
   table.meta-table th, table.steps-table th { background-color: #1e3a8a; color: #ffffff; font-weight: bold; }
   .section-badge { background-color: #e2e8f0; font-weight: bold; color: #0f172a; padding: 5px 8px; margin-top: 10px; margin-bottom: 6px; }
@@ -283,27 +291,38 @@ object WordDocExporter {
 </head>
 <body>
 
-<div class="header-title">${plan.schoolName.ifBlank { "JUNIOR SECONDARY SCHOOL" }}</div>
-<div class="header-sub">KICD CBC LESSON PLAN</div>
+<div class="header-title">${escapeHtml(plan.schoolName.ifBlank { "JUNIOR SECONDARY SCHOOL" })}</div>
+<div class="header-sub">KENYA INSTITUTE OF CURRICULUM DEVELOPMENT (KICD) CBC LESSON PLAN</div>
+<div class="header-created">Lesson Plan Created: ${plan.formattedCreatedDateTime()}</div>
 
 <table class="meta-table">
   <tr>
-    <th style="width: 15%;">SCHOOL</th>
-    <td style="width: 35%;">${plan.schoolName}</td>
-    <th style="width: 15%;">DATE</th>
-    <td style="width: 35%;">${plan.date.ifBlank { "___________" }}</td>
+    <th style="width: 18%;">TEACHER</th>
+    <td colspan="3" style="width: 82%;"><strong>$teacherInfoDisplay</strong></td>
   </tr>
   <tr>
-    <th>GRADE</th>
-    <td>${plan.grade}</td>
-    <th>TIME / ROLL</th>
-    <td>${plan.time} | ${plan.roll}</td>
+    <th style="width: 18%;">SCHOOL</th>
+    <td style="width: 32%;">${escapeHtml(plan.schoolName)}</td>
+    <th style="width: 18%;">CLASS / STREAM</th>
+    <td style="width: 32%;"><strong>$classDisplay</strong></td>
+  </tr>
+  <tr>
+    <th>DATE OF LESSON</th>
+    <td>${if (plan.date.isNotBlank()) escapeHtml(plan.date) else "___________"}</td>
+    <th>TIME & DURATION</th>
+    <td>${escapeHtml(plan.time)}</td>
   </tr>
   <tr>
     <th>LEARNING AREA</th>
-    <td>${plan.learningArea}</td>
-    <th>WEEK & LESSON</th>
-    <td>Week ${plan.week}, Lesson ${plan.lessonNumber}</td>
+    <td><strong>${escapeHtml(plan.learningArea)}</strong></td>
+    <th>ROLL / ATTENDANCE</th>
+    <td>${escapeHtml(plan.roll)}</td>
+  </tr>
+  <tr>
+    <th>GRADE & TIMING</th>
+    <td>${escapeHtml(plan.grade)} (Week ${plan.week}, Lesson ${plan.lessonNumber})</td>
+    <th>CREATED AT</th>
+    <td>${plan.formattedCreatedDateTime()}</td>
   </tr>
   <tr>
     <th>STRAND</th>
@@ -342,9 +361,9 @@ object WordDocExporter {
 <table class="steps-table">
   <thead>
     <tr>
-      <th style="width: 18%;">LESSON STEP</th>
+      <th style="width: 22%;">LESSON STEP</th>
       <th style="width: 12%;">TIME</th>
-      <th style="width: 70%;">LEARNER & TEACHER ACTIVITIES</th>
+      <th style="width: 66%;">LEARNER & TEACHER ACTIVITIES</th>
     </tr>
   </thead>
   <tbody>
@@ -380,6 +399,23 @@ object WordDocExporter {
 <div style="padding-left: 12px; margin-bottom: 24px; min-height: 40px; border-bottom: 1px dashed #94a3b8;">
   ${escapeHtml(plan.reflection)}
 </div>
+
+<table style="width: 100%; border: none; margin-top: 25px;">
+  <tr style="border: none;">
+    <td style="border: none; width: 50%; text-align: left;">
+      <div style="border-top: 1px solid #64748b; padding-top: 5px; width: 90%;">
+        <strong>Teacher's Signature:</strong> ____________________<br>
+        <strong>Date:</strong> ____________________
+      </div>
+    </td>
+    <td style="border: none; width: 50%; text-align: right;">
+      <div style="border-top: 1px solid #64748b; padding-top: 5px; width: 90%; margin-left: auto;">
+        <strong>HOD / Supervisor's Signature & Stamp:</strong><br>
+        <strong>Date:</strong> ____________________
+      </div>
+    </td>
+  </tr>
+</table>
 
 </body>
 </html>
