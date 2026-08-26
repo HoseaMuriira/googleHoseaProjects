@@ -218,6 +218,33 @@ class SchemeRepository(
                 // Auto-login last saved user
                 val lastUser = allUsers.first()
                 userDao.loginUser(lastUser.username)
+            } else {
+                val defaultUser = UserAccount(
+                    username = "Teacher",
+                    passwordHash = "1234",
+                    fullName = "Junior School Teacher",
+                    schoolName = "JUNIOR SECONDARY SCHOOL",
+                    tscNumber = "",
+                    phone = "0748053644",
+                    freeDownloadsRemaining = 3,
+                    paidDownloadsRemaining = 0,
+                    isLoggedIn = true,
+                    lastSyncedAt = System.currentTimeMillis()
+                )
+                userDao.insertUser(defaultUser)
+            }
+        }
+
+        val existingPlans = lessonPlanDao.getAllLessonPlans().firstOrNull()
+        if (existingPlans.isNullOrEmpty()) {
+            val firstScheme = schemeDao.getAllSchemes().firstOrNull()?.firstOrNull()
+            if (firstScheme != null && firstScheme.rows.isNotEmpty()) {
+                val samplePlan1 = createLessonPlanFromSchemeRow(firstScheme, firstScheme.rows[0])
+                val samplePlan2 = if (firstScheme.rows.size > 1) createLessonPlanFromSchemeRow(firstScheme, firstScheme.rows[1]) else null
+                lessonPlanDao.insertLessonPlan(samplePlan1)
+                if (samplePlan2 != null) {
+                    lessonPlanDao.insertLessonPlan(samplePlan2)
+                }
             }
         }
     }

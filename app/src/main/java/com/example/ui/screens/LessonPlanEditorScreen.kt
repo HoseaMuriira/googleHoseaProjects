@@ -632,9 +632,18 @@ fun LessonPlanEditorScreen(
         MpesaPaymentDialog(
             onDismiss = { viewModel.showPaymentDialog(false) },
             currentBalance = currentUser?.totalAvailableDownloads ?: 0,
+            userPhone = currentUser?.phone ?: "",
             onVerifyPayment = { code, amount, count ->
                 viewModel.topUpMpesaCredits(code, amount, count)
             }
+        )
+    }
+
+    if (uiState.isPaymentSuccessDialogVisible && uiState.paymentStatusTransaction != null) {
+        PaymentStatusDialog(
+            transaction = uiState.paymentStatusTransaction!!,
+            currentUser = currentUser,
+            onDismiss = { viewModel.dismissPaymentStatusDialog() }
         )
     }
 
